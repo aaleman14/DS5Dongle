@@ -124,6 +124,7 @@ void audio_loop() {
         pkt[76] = 0x12 | 0 << 6 | 1 << 7;
         pkt[77] = SAMPLE_SIZE;
         memcpy(pkt + 78, haptic_buf, SAMPLE_SIZE);
+#if !DISABLE_SPEAKER_PROC
         pkt[142] = (plug_headset ? 0x16 : 0x13) | 0 << 6 | 1 << 7; // Speaker: 0x13
         // L Headset Mono: 0x14
         // L Headset R Speaker: 0x15
@@ -132,6 +133,7 @@ void audio_loop() {
         critical_section_enter_blocking(&opus_cs);
         memcpy(pkt + 144, opus_buf, 200);
         critical_section_exit(&opus_cs);
+#endif
 
         bt_write(pkt, sizeof(pkt));
         haptic_buf_pos = 0;
