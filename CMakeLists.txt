@@ -112,6 +112,21 @@ target_include_directories(wdl_resampler PUBLIC
 add_subdirectory(lib/opus)
 
 target_compile_options(wdl_resampler PRIVATE -fsigned-char)
+
+# Phase A.2: Move WDL_Resampler hot-path methods to RAM via .time_critical sections.
+# -ffunction-sections gives each function its own .text.<mangled_symbol> section.
+# We then rename just the two hot-path methods (called every audio frame) to
+# .time_critical.WDL_<name>, which the Pico SDK linker script places in RAM
+# (loaded from flash at boot, executed from RAM at runtime). Other WDL methods
+# stay in flash. No submodule modification required.
+target_compile_options(wdl_resampler PRIVATE -ffunction-sections)
+add_custom_command(TARGET wdl_resampler POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY}
+        --rename-section .text._ZN13WDL_Resampler11ResampleOutEPfiii=.time_critical.WDL_ResampleOut
+        --rename-section .text._ZN13WDL_Resampler15ResamplePrepareEiiPPf=.time_critical.WDL_ResamplePrepare
+        $<TARGET_FILE:wdl_resampler>
+    COMMENT "Phase A.2: relocating WDL_Resampler hot-path methods to .time_critical.*"
+)
 target_compile_options(ds5-bridge PRIVATE -fsigned-char)
 target_compile_definitions(wdl_resampler PRIVATE
         WDL_RESAMPLE_TYPE=float
