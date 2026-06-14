@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <unordered_map>
 
 #include "bt.h"
 #include "config.h"
@@ -18,6 +19,7 @@
 // 0xf9 feature report so the config UI can display the real gated mic/speaker
 // state, reflecting the disable_mic / disable_speaker settings.
 extern bool spk_active;
+extern std::unordered_map<uint8_t, std::vector<uint8_t> > feature_data;
 
 bool is_pico_cmd(uint8_t report_id) {
     if (report_id == 0xf6 ||
@@ -36,8 +38,8 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
         if (sizeof(Config_body) > reqlen) {
             printf("[Config] Warning: Config_body overflow\n");
         }
-        const auto len = std::min(sizeof(Config_body),static_cast<size_t>(reqlen));
-        memcpy(buffer,&get_config(),len);
+        const auto len = std::min(sizeof(Config_body), static_cast<size_t>(reqlen));
+        memcpy(buffer, &get_config(), len);
         return len;
     }
     if (report_id == 0xf8) {
@@ -73,8 +75,7 @@ uint16_t pico_cmd_get(uint8_t report_id, uint8_t *buffer, uint16_t reqlen) {
     return 0;
 }
 
-void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
-    (void) report_id;
+void pico_cmd_set(uint8_t cmd_id, uint8_t const *buffer, uint16_t bufsize) {
     if (bufsize == 0) {
         return;
     }
@@ -82,20 +83,35 @@ void pico_cmd_set(uint8_t report_id, uint8_t const *buffer, uint16_t bufsize) {
     // 0x01 update config in variable
     // 0x02 write config to flash
     // 0x03 reconnect tinyusb device;
-    if (buffer[0] == 0x01) {
+
+    switch (cmd_id) {
+        case 0x01: {
 #if ENABLE_VERBOSE
-        printf("[CMD] Enter config set func\n");
+            printf("[CMD] Enter config set func\n");
 #endif
-        set_config(buffer + 1, bufsize - 1);
-    }
-    if (buffer[0] == 0x02) {
-        printf("[CMD] Enter config save func\n");
-        config_save();
-    }
-    if (buffer[0] == 0x03) {
-        printf("[CMD] Enter tud reconnect func\n");
-        tud_disconnect();
-        sleep_ms(150);
-        tud_connect();
+            set_config(buffer, bufsize);
+            break;
+        }
+        case 0x02: {
+            printf("[CMD] Enter config save func\n");
+            config_save();
+            break;
+        }
+        case 0x03: {
+            printf("[CMD] Enter tud reconnect func\n");
+            tud_disconnect();
+            sleep_ms(150);
+            tud_connect();
+            break;
+        }
+        case 0x04: {
+            printf("[CMD] get config\n");
+            uint8_t buf[63]{};
+            buf[0] = 0x66;
+            buf[1] = 0x04;
+            memcpy(buf + 2, &get_config(), sizeof(Config_body));
+            feature_data[0x81].assign(buf,buf + sizeof(buf));
+            break;
+        }
     }
 }

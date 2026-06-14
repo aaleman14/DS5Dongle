@@ -154,10 +154,6 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
     (void) buffer;
     (void) reqlen;
 
-    if (is_pico_cmd(report_id)) {
-        return pico_cmd_get(report_id, buffer, reqlen);
-    }
-
     // DSE profiles: while the unlock + prefetch is still in progress, return 0
     // (NAK) for profile reads so the PS app retries rather than caching an
     // empty snapshot. Still kick off the background BT fetch.
@@ -207,14 +203,6 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
     (void) buffer;
     (void) bufsize;
 
-    if (is_pico_cmd(report_id)) {
-#if ENABLE_VERBOSE
-        printf("[HID] Receive 0xf6 setting config, funcid:0x%02X\n", buffer[0]);
-#endif
-        pico_cmd_set(report_id, buffer, bufsize);
-        return;
-    }
-
     // INTERRUPT OUT
     if (report_id == 0) {
         switch (buffer[0]) {
@@ -237,13 +225,21 @@ void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t rep
             }
         }
     }
+    if (report_id == 0x80 && buffer[0] == 0x66) {
+#if ENABLE_VERBOSE
+        printf("[HID] Receive 0x66 setting config, funcid:0x%02X\n", buffer[1]);
+#endif
+
+        // 0x80 0x66 cmd_id buffer...
+        pico_cmd_set(buffer[1], buffer + 1, bufsize - 2);
+        return;
+    }
     if (report_id == 0x80 ||
         // DSE: Write Profile Block
         report_id == 0x60 ||
         report_id == 0x62 ||
         report_id == 0x61) {
         set_feature_data(report_id, const_cast<uint8_t *>(buffer), bufsize);
-        return;
     }
 }
 
