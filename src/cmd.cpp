@@ -160,10 +160,9 @@ void pico_cmd_set(uint8_t cmd_id, uint8_t const *buffer, uint16_t bufsize) {
                 }
             }
             uint8_t buf[63]{};
-            buf[0] = 0x81;
-            buf[1] = 0x66;
-            buf[2] = 0x01;
-            buf[3] = success ? 0x00 : 0x01;
+            buf[0] = 0x66;
+            buf[1] = 0x01;
+            buf[2] = success ? 0x00 : 0x01;
             feature_data[0x81].assign(buf, buf + sizeof(buf));
             break;
         }
@@ -185,7 +184,7 @@ void pico_cmd_set(uint8_t cmd_id, uint8_t const *buffer, uint16_t bufsize) {
             buf[0] = 0x66;
             buf[1] = 0x04;
             memcpy(buf + 2, &get_config(), sizeof(Config_body));
-            feature_data[0x81].assign(buf,buf + sizeof(buf));
+            feature_data[0x81].assign(buf, buf + sizeof(buf));
             break;
         }
         case 0x05: {

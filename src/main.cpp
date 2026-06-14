@@ -164,6 +164,10 @@ uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t
 
     std::vector<uint8_t> feature_data = get_feature_data(report_id, reqlen);
     if (!feature_data.empty()) {
+        if (report_id == 0x81 && feature_data[0] == 0x66) {
+            memcpy(buffer, feature_data.data(), feature_data.size());
+            return feature_data.size();
+        }
         memcpy(buffer, feature_data.data() + 1, feature_data.size() - 1);
     }
 
