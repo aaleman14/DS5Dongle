@@ -80,14 +80,24 @@ void __not_in_flash_func(audio_loop)() {
     // Mic playback: drain decoded mic PCM into the USB IN endpoint
     static mic_decode_element mic_pb{};
     if (queue_try_remove(&mic_decode_fifo, &mic_pb)) {
-        uint16_t written = tud_audio_write(mic_pb.data, mic_pb.len);
-        if (written != mic_pb.len) {
+        // The controller mic is mono, but the USB descriptor presents a 2-channel
+        // mic (matching the real DS5) so Windows doesn't conflict with its cached
+        // DS5 audio format. Duplicate each mono sample into L and R.
+        static int16_t mic_stereo[MIC_FRAMES * 2];
+        const int mono_samples = mic_pb.len / 2;
+        for (int i = 0; i < mono_samples; i++) {
+            mic_stereo[2 * i] = mic_pb.data[i];
+            mic_stereo[2 * i + 1] = mic_pb.data[i];
+        }
+        const uint16_t stereo_len = (uint16_t) (mono_samples * 2 * 2);
+        uint16_t written = tud_audio_write(mic_stereo, stereo_len);
+        if (written != stereo_len) {
             // Gated behind ENABLE_VERBOSE: when the host has not opened the mic
             // interface (the common case -- most games never do) tud_audio_write
             // short-writes every frame, so an unconditional log would flood
             // core0's hot path with the newlib formatting chain.
 #if ENABLE_VERBOSE
-            printf("[Audio] Warning: USB mic FIFO wrote %u/%u bytes\n", written, mic_pb.len);
+            printf("[Audio] Warning: USB mic FIFO wrote %u/%u bytes\n", written, stereo_len);
 #endif
         }
     }
