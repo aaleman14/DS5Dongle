@@ -79,13 +79,9 @@ void state_update(const uint8_t *data, const uint8_t size) {
     state.EnableRumbleEmulation = update.EnableRumbleEmulation;
     state.UseRumbleNotHaptics = update.UseRumbleNotHaptics;
     state.EnableImprovedRumbleEmulation = update.EnableImprovedRumbleEmulation;
-    if (update.RumbleEmulationLeft > 0 || update.RumbleEmulationRight > 0) {
-        // why doesn't ninja gaiden 4 enable UseRumbleNotHaptics
-        state.UseRumbleNotHaptics = true;
-    }
-    if (state.EnableRumbleEmulation ||
-        state.UseRumbleNotHaptics ||
-        state.EnableImprovedRumbleEmulation) {
+    state.UseRumbleNotHaptics2 = update.UseRumbleNotHaptics2;
+    if (state.UseRumbleNotHaptics ||
+        state.UseRumbleNotHaptics2) {
         state.RumbleEmulationLeft = update.RumbleEmulationLeft;
         state.RumbleEmulationRight = update.RumbleEmulationRight;
     }
