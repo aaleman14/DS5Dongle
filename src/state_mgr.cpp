@@ -65,7 +65,9 @@ void state_init() {
     state.VolumeSpeaker = get_config().speaker_volume;
     state.VolumeHeadphones = get_config().headset_volume;
     set_volume(get_config().speaker_volume, get_config().headset_volume);
-    set_gain(get_config().speaker_gain);
+    if (get_config().speaker_gain != 0) {
+        set_gain(get_config().speaker_gain);
+    }
 }
 
 void state_set(uint8_t *data, const uint8_t size) {
@@ -99,11 +101,11 @@ void state_update(const uint8_t *data, const uint8_t size) {
         state.RumbleEmulationLeft = state.RumbleEmulationRight = 0;
     }
 
-    if (!get_config().lock_volume && update.AllowHeadphoneVolume) {
+    if (update.AllowHeadphoneVolume) {
         get_config().headset_volume = update.VolumeHeadphones;
         state.VolumeHeadphones = update.VolumeHeadphones;
     }
-    if (!get_config().lock_volume && update.AllowSpeakerVolume) {
+    if (update.AllowSpeakerVolume) {
         get_config().speaker_volume = update.VolumeSpeaker;
         state.VolumeSpeaker = update.VolumeSpeaker;
     }
@@ -146,11 +148,14 @@ void state_update(const uint8_t *data, const uint8_t size) {
         state.TriggerMotorPowerReduction = update.TriggerMotorPowerReduction;
     }
 
-    if (!get_config().lock_volume && update.AllowAudioControl2) {
-        state.SpeakerCompPreGain = update.SpeakerCompPreGain;
+    if (update.AllowAudioControl2) {
+        if (get_config().speaker_gain == 0) {
+            state.SpeakerCompPreGain = get_config().speaker_gain;
+        }else {
+            state.SpeakerCompPreGain = update.SpeakerCompPreGain;
+        }
         state.BeamformingEnable = update.BeamformingEnable;
         state.UnkAudioControl2 = update.UnkAudioControl2;
-        get_config().speaker_gain = update.SpeakerCompPreGain;
     }
 
     if (update.AllowHapticLowPassFilter) {
@@ -182,13 +187,12 @@ void state_update(const uint8_t *data, const uint8_t size) {
     }
 }
 
+// for usbaudio SET_CUR cmd
 void set_volume(const uint8_t value) {
     // printf("[StateMgr] SetVolume: %u\n",value);
-    if (get_config().sync_spk_headset_volume) {
-        state.VolumeSpeaker = value;
-        get_config().speaker_volume = value;
-    }
+    state.VolumeSpeaker = value;
     state.VolumeHeadphones = value;
+    get_config().speaker_volume = value;
     get_config().headset_volume = value;
 }
 
@@ -199,5 +203,4 @@ void set_volume(const uint8_t speaker, const uint8_t headset) {
 
 void set_gain(const uint8_t value) {
     state.SpeakerCompPreGain = value;
-    state.BeamformingEnable = true;
 }
