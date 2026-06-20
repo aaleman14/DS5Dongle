@@ -169,6 +169,9 @@ void set_config(const uint8_t *new_config, const uint16_t len) {
     if (config.body.speaker_gain != 0) {
         set_gain(config.body.speaker_gain);
     }
+    if (config.body.trigger_reduce != 0) {
+        set_trigger_reduce(config.body.trigger_reduce);
+    }
 }
 
 void set_config(const Config_body &new_config) {

@@ -151,17 +151,13 @@ void state_update(const uint8_t *data, const uint8_t size) {
 
     if (update.AllowMotorPowerLevel) {
         state.RumbleMotorPowerReduction = update.RumbleMotorPowerReduction;
-        if (get_config().trigger_reduce != 0) {
-            state.TriggerMotorPowerReduction = get_config().trigger_reduce;
-        }else {
+        if (get_config().trigger_reduce == 0) {
             state.TriggerMotorPowerReduction = update.TriggerMotorPowerReduction;
         }
     }
 
     if (update.AllowAudioControl2) {
         if (get_config().speaker_gain == 0) {
-            state.SpeakerCompPreGain = get_config().speaker_gain;
-        }else {
             state.SpeakerCompPreGain = update.SpeakerCompPreGain;
         }
         state.BeamformingEnable = update.BeamformingEnable;
@@ -213,4 +209,8 @@ void set_volume(const uint8_t speaker, const uint8_t headset) {
 
 void set_gain(const uint8_t value) {
     state.SpeakerCompPreGain = value;
+}
+
+void set_trigger_reduce(const uint8_t value) {
+    state.TriggerMotorPowerReduction = value;
 }
