@@ -24,7 +24,7 @@ on:
         type: string
         default: ""
       asset_suffix:
-        description: Suffix added before .uf2 on release assets (e.g. a tag)
+        description: Suffix added before .uf2 on artifacts/release assets. Empty CI builds use -short-sha.
         required: false
         type: string
         default: ""
@@ -162,9 +162,12 @@ jobs:
           ref: ${{ inputs.ref }}
           submodules: recursive
 
-      - name: Resolve firmware version
+      - name: Resolve firmware metadata
+        id: firmware-meta
         env:
           IN_VER: ${{ inputs.version }}
+          IN_ASSET_SUFFIX: ${{ inputs.asset_suffix }}
+          IN_UPLOAD_TAG: ${{ inputs.upload_tag }}
         run: |
           v="$IN_VER"
           # A full 40-char commit SHA (build.yml passes github.sha) is
@@ -173,6 +176,12 @@ jobs:
             v="${v:0:7}"
           fi
           echo "FW_VER=$v" >> "$GITHUB_ENV"
+
+          asset_suffix="$IN_ASSET_SUFFIX"
+          if [ -z "$asset_suffix" ] && [ -z "$IN_UPLOAD_TAG" ]; then
+            asset_suffix="-$(git rev-parse --short=7 HEAD)"
+          fi
+          echo "asset_suffix=$asset_suffix" >> "$GITHUB_OUTPUT"
 
       - name: Prepare build dependency cache
         id: apt-cache
@@ -245,7 +254,7 @@ jobs:
       - name: Build ${{ matrix.name }}
         shell: bash
         env:
-          ASSET_SUFFIX: ${{ inputs.asset_suffix }}
+          ASSET_SUFFIX: ${{ steps.firmware-meta.outputs.asset_suffix }}
           ARTIFACT_BASENAME: ${{ matrix.artifact }}
           BUILD_DIR: ${{ matrix.build_dir }}
           EXTRA_CMAKE_ARGS: ${{ matrix.cmake_args }}
@@ -274,8 +283,8 @@ jobs:
         if: matrix.upload_artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact }}${{ inputs.asset_suffix }}
-          path: artifacts/${{ matrix.artifact }}${{ inputs.asset_suffix }}.uf2
+          name: ${{ matrix.artifact }}${{ steps.firmware-meta.outputs.asset_suffix }}
+          path: artifacts/${{ matrix.artifact }}${{ steps.firmware-meta.outputs.asset_suffix }}.uf2
           archive: false
           if-no-files-found: error
 
