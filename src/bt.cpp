@@ -155,6 +155,8 @@ int bt_init() {
     gap_ssp_set_io_capability(SSP_IO_CAPABILITY_DISPLAY_YES_NO);
     gap_ssp_set_authentication_requirement(SSP_IO_AUTHREQ_MITM_PROTECTION_NOT_REQUIRED_GENERAL_BONDING);
 
+    gap_set_page_scan_activity(0x0012, 0x0012); // 11.25ms
+    gap_set_page_scan_type(PAGE_SCAN_MODE_INTERLACED);
     gap_connectable_control(1);
     gap_discoverable_control(1);
 
