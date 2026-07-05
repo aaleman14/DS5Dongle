@@ -663,7 +663,21 @@ static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint1
             }
         } else if (channel == hid_control_cid) {
             if (check_dse) {
-                if (packet[0] == 0xA3 && packet[1] == 0x70) {
+                if (get_config().controller_mode == 0) {
+                    // Forced DS5 mode: never run the Edge path, even if the
+                    // controller answers the 0x70 probe like an Edge. Newer
+                    // standard DualSense revisions (e.g. BDM-050 / V5) return a
+                    // real 0x70 report instead of the 1-byte error older boards
+                    // give, so Auto-detect misclassifies them as an Edge and the
+                    // Edge unlock handshake breaks enumeration. Connect as a
+                    // plain DualSense on the first control response.
+                    printf("Forced DS5 mode: treating controller as DualSense\n");
+                    check_dse = false;
+                    is_dse = false;
+#if !ENABLE_SERIAL
+                    if (!tud_suspended()) tud_connect();
+#endif
+                } else if (packet[0] == 0xA3 && packet[1] == 0x70) {
                     printf("Connected DSE Controller\n");
                     check_dse = false;
                     is_dse = true;
