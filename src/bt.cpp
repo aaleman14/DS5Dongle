@@ -76,6 +76,11 @@ static int8_t bt_rssi = 0;
 unordered_map<uint8_t, vector<uint8_t> > feature_data;
 queue_t send_fifo;
 
+// Forward declarations (both are defined later in this file). Needed by the
+// SET 0x65 firmware-echo handshake sent from the L2CAP control handler below.
+uint16_t bt_control_cid();
+void bt_control_send(const uint8_t *data, uint16_t len);
+
 struct send_element {
     uint8_t data[512];
     size_t len;
@@ -664,27 +669,37 @@ static void __not_in_flash_func(l2cap_packet_handler)(uint8_t packet_type, uint1
         } else if (channel == hid_control_cid) {
             if (check_dse) {
                 if (packet[0] == 0xA3 && packet[1] == 0x70) {
-                    // A controller that answers the 0x70 probe. Real Edges do,
-                    // but so do newer standard DualSense revisions (e.g. BDM-050
-                    // / V5) -- and those newer boards ALSO need the SET 0x65
-                    // firmware-echo unlock handshake that dse_on_connect() sends
-                    // before they will enable their output actuators (rumble,
-                    // lightbar, adaptive triggers, player LEDs). So always run
-                    // the handshake here. But when the user has forced DS5 mode
-                    // (controller_mode == 0), keep is_dse = false so USB still
-                    // enumerates as a plain DualSense: the Edge HID descriptor
-                    // advertises profile feature reports (0x70-0x7B) that get
-                    // NAK'd during the ~4 s unlock, and that is what breaks
-                    // enumeration for a board that isn't really an Edge.
-                    is_dse = (get_config().controller_mode != 0);
-                    printf(is_dse ? "Connected DSE Controller\n"
-                                  : "Forced DS5: DualSense with unlock handshake\n");
-                    check_dse = false;
-                    // Send the unlock handshake; USB connects immediately,
-                    // profile reads (if any) are gated until the snapshot is
-                    // prepared. Harmless for a DS5-presenting device since the
-                    // host never reads profile reports.
-                    dse_on_connect();
+                    if (get_config().controller_mode == 0) {
+                        // Forced DS5 mode for a newer DualSense (e.g. BDM-050)
+                        // that answers the 0x70 probe like an Edge. It needs
+                        // ONLY the SET 0x65 firmware-echo handshake to enable
+                        // its output actuators (rumble / lightbar / adaptive
+                        // triggers / player LEDs). Send just that -- do NOT run
+                        // the full Edge unlock (dse_on_connect): its SET 0x80
+                        // profile-unlock and the profile-read gating are what
+                        // break USB enumeration for a board that isn't a real
+                        // Edge. Keep is_dse false so USB enumerates as a plain
+                        // DualSense.
+                        printf("Forced DS5: SET 0x65 handshake only\n");
+                        check_dse = false;
+                        is_dse = false;
+                        auto it = feature_data.find(0x20);
+                        if (bt_control_cid() != 0 && it != feature_data.end() &&
+                            it->second.size() >= 62) {
+                            uint8_t handshake[63];
+                            handshake[0] = 0x53;
+                            handshake[1] = 0x65;
+                            memcpy(handshake + 2, it->second.data() + 1, 61);
+                            bt_control_send(handshake, sizeof(handshake));
+                        }
+                    } else {
+                        printf("Connected DSE Controller\n");
+                        check_dse = false;
+                        is_dse = true;
+                        // Unlock Edge profiles; USB connects immediately, profile
+                        // reads are gated until the snapshot is prepared.
+                        dse_on_connect();
+                    }
 #if !ENABLE_SERIAL
                     // don't re-enumerate while the host is suspended -- it would wake a sleeping host
                     if (!tud_suspended()) tud_connect();
